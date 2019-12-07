@@ -53,7 +53,8 @@ class HaltInstruction:
 
     @staticmethod
     def from_memory(memory, address):
-        return HaltInstruction()
+        descriptor = InstructionDescriptor(memory[address])
+        return HaltInstruction() if descriptor.opcode() == 99 else None
 
     def execute(self, memory, address, io=None):
         # NOOP
@@ -73,7 +74,7 @@ class AddInstruction:
             Parameter(memory[address + 1], descriptor.parameter_mode(1)),
             Parameter(memory[address + 2], descriptor.parameter_mode(2)),
             Parameter(memory[address + 3], descriptor.parameter_mode(3))
-        )
+        ) if descriptor.opcode() == 1 else None
 
     def execute(self, memory, address, io=None):
         result = self.parameter1.read(memory) + self.parameter2.read(memory)
@@ -94,7 +95,7 @@ class MultiplyInstruction:
             Parameter(memory[address + 1], descriptor.parameter_mode(1)),
             Parameter(memory[address + 2], descriptor.parameter_mode(2)),
             Parameter(memory[address + 3], descriptor.parameter_mode(3))
-        )
+        ) if descriptor.opcode() == 2 else None
 
     def execute(self, memory, address, io=None):
         result = self.parameter1.read(memory) * self.parameter2.read(memory)
@@ -111,7 +112,7 @@ class InputInstruction:
         descriptor = InstructionDescriptor(memory[address])
         return cls(
             Parameter(memory[address + 1], descriptor.parameter_mode(1)),
-        )
+        ) if descriptor.opcode() == 3 else None
 
     def execute(self, memory, address, io):
         self.parameter.write(memory, io.read())
@@ -127,7 +128,7 @@ class OutputInstruction:
         descriptor = InstructionDescriptor(memory[address])
         return cls(
             Parameter(memory[address + 1], descriptor.parameter_mode(1)),
-        )
+        ) if descriptor.opcode() == 4 else None
 
     def execute(self, memory, address, io):
         io.write(self.parameter.read(memory))
@@ -145,7 +146,7 @@ class JumpIfTrueInstruction:
         return cls(
             Parameter(memory[address + 1], descriptor.parameter_mode(1)),
             Parameter(memory[address + 2], descriptor.parameter_mode(2))
-        )
+        ) if descriptor.opcode() == 5 else None
 
     def execute(self, memory, address, io=None):
         if self.parameter1.read(memory) > 0:
@@ -165,7 +166,7 @@ class JumpIfFalseInstruction:
         return cls(
             Parameter(memory[address + 1], descriptor.parameter_mode(1)),
             Parameter(memory[address + 2], descriptor.parameter_mode(2))
-        )
+        ) if descriptor.opcode() == 6 else None
 
     def execute(self, memory, address, io=None):
         if self.parameter1.read(memory) == 0:
@@ -187,7 +188,7 @@ class LessThenInstruction:
             Parameter(memory[address + 1], descriptor.parameter_mode(1)),
             Parameter(memory[address + 2], descriptor.parameter_mode(2)),
             Parameter(memory[address + 3], descriptor.parameter_mode(3))
-        )
+        ) if descriptor.opcode() == 7 else None
 
     def execute(self, memory, address, io=None):
         if self.parameter1.read(memory) < self.parameter2.read(memory):
@@ -210,7 +211,7 @@ class EqualsInstruction:
             Parameter(memory[address + 1], descriptor.parameter_mode(1)),
             Parameter(memory[address + 2], descriptor.parameter_mode(2)),
             Parameter(memory[address + 3], descriptor.parameter_mode(3))
-        )
+        ) if descriptor.opcode() == 8 else None
 
     def execute(self, memory, address, io=None):
         if self.parameter1.read(memory) == self.parameter2.read(memory):
@@ -227,51 +228,38 @@ class IntcodeProgram:
     def __init__(self, program):
         self.memory = program.copy()
         self.address = 0
+        self.instruction_types = [
+            AddInstruction, MultiplyInstruction, InputInstruction, OutputInstruction,
+            JumpIfTrueInstruction, JumpIfFalseInstruction, LessThenInstruction, EqualsInstruction,
+            HaltInstruction
+        ]
 
-    def peek_instruction(self):
-        descriptor = InstructionDescriptor(self.memory[self.address])
-        if descriptor.opcode() == 1:
-            return AddInstruction.from_memory(self.memory, self.address)
-        elif descriptor.opcode() == 2:
-            return MultiplyInstruction.from_memory(self.memory, self.address)
-        elif descriptor.opcode() == 3:
-            return InputInstruction.from_memory(self.memory, self.address)
-        elif descriptor.opcode() == 4:
-            return OutputInstruction.from_memory(self.memory, self.address)
-        elif descriptor.opcode() == 5:
-            return JumpIfTrueInstruction.from_memory(self.memory, self.address)
-        elif descriptor.opcode() == 6:
-            return JumpIfFalseInstruction.from_memory(self.memory, self.address)
-        elif descriptor.opcode() == 7:
-            return LessThenInstruction.from_memory(self.memory, self.address)
-        elif descriptor.opcode() == 8:
-            return EqualsInstruction.from_memory(self.memory, self.address)
-        elif descriptor.opcode() == 99:
-            return HaltInstruction()
-        else:
-            raise Exception(f"Unkown opcode {descriptor.opcode()} at position {self.address}")
+    def next_instruction(self):
+        for type in self.instruction_types:
+            instruction = type.from_memory(self.memory, self.address)
+            if instruction:
+                return instruction
+        raise Exception(f"Unkown instruction descriptor {self.memory[self.address]} at position {self.address}")
 
     def execute(self, inputs):
         io = IO(inputs)
         halt = False
         while not halt:
-            instruction = self.peek_instruction()
+            instruction = self.next_instruction()
             self.address = instruction.execute(self.memory, self.address, io)
             halt = isinstance(instruction, HaltInstruction)
         return io.outputs
 
 
-print(HaltInstruction())
 assert InstructionDescriptor(1002).opcode() == 2
 assert InstructionDescriptor(1002).parameter_mode(1) == ParameterMode.POSITION
 assert InstructionDescriptor(1002).parameter_mode(2) == ParameterMode.IMMEDIATE
 assert InstructionDescriptor(1002).parameter_mode(3) == ParameterMode.POSITION
-assert IntcodeProgram([99]).peek_instruction() == HaltInstruction()
+assert IntcodeProgram([99]).next_instruction() == HaltInstruction()
 mult = MultiplyInstruction(Parameter(4, ParameterMode(0)), Parameter(3, ParameterMode(1)), Parameter(4, ParameterMode(0)))
-assert IntcodeProgram([1002,4,3,4,33]).peek_instruction() == mult
+assert IntcodeProgram([1002,4,3,4,33]).next_instruction() == mult
 assert mult.execute([1002,4,3,4,33], 0) == 4
 prog = [int(s) for s in open("./day05/input.txt").read().strip().split(',')]
-print(prog)
 print(IntcodeProgram(prog).execute([1]))
 
 # input equals to 8 program
@@ -308,5 +296,4 @@ assert IntcodeProgram(largerExample).execute([9]) == [1001]
 
 
 prog = [int(s) for s in open("./day05/input2.txt").read().strip().split(',')]
-print(prog)
 print(IntcodeProgram(prog).execute([5]))
