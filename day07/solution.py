@@ -36,11 +36,13 @@ class InstructionDescriptor:
 
 
 class IO:
-    def __init__(self, inputs):
+    def __init__(self, inputs, outputs = []):
         self.inputs = inputs
-        self.outputs = []
+        self.outputs = outputs
 
     def read(self):
+        if not self.inputs:
+            raise Exception("IO input buffer is empty when trying to read")
         return self.inputs.pop(0)
 
     def write(self, value: int):
@@ -227,6 +229,7 @@ class IntcodeProgram:
     def __init__(self, program):
         self.memory = program.copy()
         self.address = 0
+        self.halted = False
         self.instruction_types = [
             AddInstruction, MultiplyInstruction, InputInstruction, OutputInstruction,
             JumpIfTrueInstruction, JumpIfFalseInstruction, LessThenInstruction, EqualsInstruction,
@@ -242,24 +245,28 @@ class IntcodeProgram:
 
     def execute(self, inputs):
         io = IO(inputs)
-        halt = False
-        while not halt:
+        while not self.halted:
             instruction = self.next_instruction()
             self.address = instruction.execute(self.memory, self.address, io)
-            halt = isinstance(instruction, HaltInstruction)
+            self.halted = isinstance(instruction, HaltInstruction)
         return io.outputs
 
+    def execute_until_output_or_halt(self, io):
+        while True:
+            instruction = self.next_instruction()
+            self.address = instruction.execute(self.memory, self.address, io)
+            if isinstance(instruction, HaltInstruction):
+                self.halted = True
+                break
+            if isinstance(instruction, OutputInstruction):
+                break
 
-def generate_phase_settings():
-    for p in itertools.permutations(list(range(5))):
+        return io
+
+
+def generate_phase_settings(settings_range):
+    for p in itertools.permutations(list(settings_range)):
         yield p
-    #
-    # for i1 in range(5):
-    #     for i2 in range(5):
-    #         for i3 in range(5):
-    #             for i4 in range(5):
-    #                 for i5 in range(5):
-    #                     yield [i1, i2, i3, i4, i5]
 
 
 def create_amplifier(prog):
@@ -267,6 +274,7 @@ def create_amplifier(prog):
         outputs = IntcodeProgram(prog).execute([phase, input])
         return outputs[0]
     return amplify
+
 
 def thruster_signal(prog, phase_settings):
     a0 = create_amplifier(prog)(phase_settings[0], 0)
@@ -276,25 +284,81 @@ def thruster_signal(prog, phase_settings):
     a4 = create_amplifier(prog)(phase_settings[4], a3)
     return a4
 
-def max_thruster_signal(program_string):
+
+class FeedbackIO:
+
+    def __init__(self, buffer01, buffer12, buffer23, buffer34, buffer40):
+        self.buffer01 = buffer01
+        self.buffer12 = buffer12
+        self.buffer23 = buffer23
+        self.buffer34 = buffer34
+        self.buffer40 = buffer40
+        self.io0 = IO(self.buffer40, self.buffer01)
+        self.io1 = IO(self.buffer01, self.buffer12)
+        self.io2 = IO(self.buffer12, self.buffer23)
+        self.io3 = IO(self.buffer23, self.buffer34)
+        self.io4 = IO(self.buffer34, self.buffer40)
+
+
+def thruster_signal_with_feedback(prog, phase_settings):
+
+    fio = FeedbackIO(
+        [phase_settings[1]],
+        [phase_settings[2]],
+        [phase_settings[3]],
+        [phase_settings[4]],
+        [phase_settings[0], 0] # plus initial input
+    )
+
+    a0 = IntcodeProgram(prog)
+    a1 = IntcodeProgram(prog)
+    a2 = IntcodeProgram(prog)
+    a3 = IntcodeProgram(prog)
+    a4 = IntcodeProgram(prog)
+
+    while not all([a0.halted, a1.halted, a2.halted, a3.halted, a4.halted]):
+        a0.execute_until_output_or_halt(fio.io0)
+        a1.execute_until_output_or_halt(fio.io1)
+        a2.execute_until_output_or_halt(fio.io2)
+        a3.execute_until_output_or_halt(fio.io3)
+        a4.execute_until_output_or_halt(fio.io4)
+    return fio.buffer40[0]
+
+
+def max_thruster_signal(program_string, settings_range=range(5)):
     prog = [int(s) for s in program_string.strip().split(',')]
     max_signal = -9999
     max_settings = None
-    for phase_settings in generate_phase_settings():
+    for phase_settings in generate_phase_settings(settings_range):
         signal = thruster_signal(prog, phase_settings)
         if signal > max_signal:
             max_signal = signal
             max_settings = phase_settings
-
     return max_signal, max_settings
 
-print(list(generate_phase_settings()))
-assert max_thruster_signal("3,15,3,16,1002,16,10,16,1,16,15,15,4,15,99,0,0") == (43210, (4,3,2,1,0))
-assert max_thruster_signal("3,23,3,24,1002,24,10,24,1002,23,-1,23,101,5,23,23,1,24,23,23,4,23,99,0,0") == (54321, (0,1,2,3,4))
-assert max_thruster_signal("3,31,3,32,1002,32,10,32,1001,31,-2,31,1007,31,0,33,1002,33,7,33,1,33,31,31,1,32,31,31,4,31,99,0,0,0") == (65210, (1,0,4,3,2))
+
+def max_thruster_signal_with_feedback(program_string, settings_range=range(5, 10)):
+    prog = [int(s) for s in program_string.strip().split(',')]
+    max_signal = -9999
+    max_settings = None
+    for phase_settings in generate_phase_settings(settings_range):
+        signal = thruster_signal_with_feedback(prog, phase_settings)
+        if signal > max_signal:
+            max_signal = signal
+            max_settings = phase_settings
+    return max_signal, max_settings
+
+print(list(generate_phase_settings(range(5))))
+# assert max_thruster_signal("3,15,3,16,1002,16,10,16,1,16,15,15,4,15,99,0,0") == (43210, (4,3,2,1,0))
+# assert max_thruster_signal("3,23,3,24,1002,24,10,24,1002,23,-1,23,101,5,23,23,1,24,23,23,4,23,99,0,0") == (54321, (0,1,2,3,4))
+# assert max_thruster_signal("3,31,3,32,1002,32,10,32,1001,31,-2,31,1007,31,0,33,1002,33,7,33,1,33,31,31,1,32,31,31,4,31,99,0,0,0") == (65210, (1,0,4,3,2))
 print(max_thruster_signal(open("day07/input.txt").read()))
 
-# print(list(generate_phase_settings()))
+print(list(generate_phase_settings(range(5, 10))))
+
+assert max_thruster_signal_with_feedback("3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5") == (139629729, (9,8,7,6,5))
+assert max_thruster_signal_with_feedback("3,52,1001,52,-5,52,3,53,1,52,56,54,1007,54,5,55,1005,55,26,1001,54,-5,54,1105,1,12,1,53,54,53,1008,54,0,55,1001,55,1,55,2,53,55,53,4,53,1001,56,-1,56,1005,56,6,99,0,0,0,0,10") == (18216, (9,7,8,5,6))
+print(max_thruster_signal_with_feedback(open("day07/input2.txt").read()))
 
 
 
