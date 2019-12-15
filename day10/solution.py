@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 
 
-@dataclass(eq=True)
+@dataclass
 class Point:
     x: int
     y: int
