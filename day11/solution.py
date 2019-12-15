@@ -466,14 +466,12 @@ assert map[P(1,1)] == PanelColor.WHITE
 assert map.painted_panels() == 2
 
 
-program = [int(s) for s in open("day11/input1.txt").read().strip().split(',')]
-map = PanelMap()
-robot = Robot(program, map)
-robot.run()
-robot.print()
-print(map.painted_panels())
-
-
+# program = [int(s) for s in open("day11/input1.txt").read().strip().split(',')]
+# map = PanelMap()
+# robot = Robot(program, map)
+# robot.run()
+# robot.print()
+# print(map.painted_panels())
 
 # ................................................####.....................#.###.................
 # ..................................................##.....................##.#.#................
@@ -543,3 +541,12 @@ print(map.painted_panels())
 # ......................................###.#...##...............................................
 # ......................................#.###....................................................
 # ...............................................................................................
+
+
+program = [int(s) for s in open("day11/input2.txt").read().strip().split(',')]
+map = PanelMap()
+map[P(0,0)] = PanelColor.WHITE
+robot = Robot(program, map)
+robot.run()
+robot.print()
+
