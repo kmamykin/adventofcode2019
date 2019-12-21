@@ -474,7 +474,6 @@ class CursesDisplay:
     def __init__(self, stdscr):
         self.stdscr = stdscr
         self.screen_size = P(0,0)
-        curses.init_pair(1, curses.COLOR_RED, curses.COLOR_WHITE)
 
     def update(self, robot, map):
         if self.screen_size != map.size:
@@ -492,7 +491,7 @@ class CursesDisplay:
                 ch = '*' if p == robot.position else tile_chars[map[p]]
 
                 try:
-                    self.stdscr.addch(screen_coords.y, screen_coords.x, ch, curses.color_pair(1))
+                    self.stdscr.addch(screen_coords.y, screen_coords.x, ch)
                 except:
                     pass
 
@@ -501,13 +500,15 @@ class CursesDisplay:
             for c in path:
                 screen_coords = c + map.size + P(1,1)
                 try:
-                    self.stdscr.addch(screen_coords.y, screen_coords.x, '+', curses.color_pair(1))
+                    self.stdscr.addch(screen_coords.y, screen_coords.x, '+')
                 except:
                     pass
+            screen_coords = map.size + map.size + P(3,-1)
+            self.stdscr.addstr(screen_coords.y, screen_coords.x, f"Distance: {len(path) - 1}")
+            eccentricity = nx.eccentricity(robot.graph, v=robot.target_position)
             screen_coords = map.size + map.size + P(3,0)
-            self.stdscr.addstr(screen_coords.y, screen_coords.x, f"Distance: {len(path) - 1}", curses.color_pair(1))
+            self.stdscr.addstr(screen_coords.y, screen_coords.x, f"Minutes to fill: {eccentricity}")
         self.stdscr.refresh()
-        # time.sleep(0.01)
 
 def main(stdscr):
     display = CursesDisplay(stdscr)
