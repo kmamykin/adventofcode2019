@@ -415,10 +415,11 @@ def turn(direction, turn_direction):
 
 class Robot:
 
-    def __init__(self, program, map):
+    def __init__(self, program, map, instructions):
         self.map = map
         self.inputs = []
         self.outputs = []
+        program[0] = 2
         self.program = IntcodeProgram(program, self.inputs, self.outputs)
         self.start_position = P(0,0)
         self.position = self.start_position
@@ -427,6 +428,11 @@ class Robot:
         self.graph = nx.Graph()
         self.completed = False
         self.reading_position = P(0,0)
+        self.instructions = instructions
+        for line in instructions:
+            for c in line:
+                self.inputs.append(ord(c))
+            self.inputs.append(10) # end of line
 
     def move(self):
         robot_chars = {
@@ -439,7 +445,9 @@ class Robot:
         result = self.program.execute_until_interrupt(interrupts={ExecutionInterrupt.HAS_OUTPUT})
         if result == ExecutionInterrupt.HAS_OUTPUT:
             output = self.outputs.pop(0)
-            # print(chr(output), end='')
+            if output > 255:
+                # we have the amount of dust
+                self.amount_of_dust = output
             if chr(output) == '.':
                 self.map[self.reading_position] = MapTile.EMPTY
                 self.reading_position += P(1, 0)
@@ -494,30 +502,18 @@ class CursesDisplay:
 
         self.stdscr.refresh()
 
-    def show_alignment_params(self, map):
-        intersections = []
-        for h in range(1, map.size.y-1):
-            for w in range(1, map.size.x-1):
-                p = P(w, h)
-                test_points = [p, p+P(1, 0), p+P(-1,0), p+P(0,-1), p+P(0,1)]
-                test_tiles = [map[p]==MapTile.SCAFFOLD for p in test_points]
-                if all(test_tiles):
-                    intersections.append(p)
-
-        a = sum([p.x*p.y for p in intersections])
-        try:
-            screen_coords = P(map.size.x + 2, 1)
-            self.stdscr.addstr(screen_coords.y, screen_coords.x, f"Alignment: {a}")
-        except:
-            pass
-
 def main(stdscr):
     display = CursesDisplay(stdscr)
     map = Map()
-    robot = Robot([int(s) for s in open("day17/input1.txt").read().strip().split(',')], map)
+    robot = Robot([int(s) for s in open("day17/input1.txt").read().strip().split(',')], map, instructions=[
+        "A,C,A,B,C,A,B,C,A,B",
+        "L,12,L,12,L,6,L,6",
+        "L,12,L,6,R,12,R,8",
+        "R,8,R,4,L,12",
+        "n"
+    ])
     robot.run(lambda: 1)
     display.update(robot, map)
-    display.show_alignment_params(map)
-    time.sleep(5)
+    # time.sleep(600)
 
 wrapper(main)
