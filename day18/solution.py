@@ -95,14 +95,13 @@ def print_map(map):
 
 
 class VaultState:
-    def __init__(self, graph, paths, size, position, keys, doors, key_history):
+    def __init__(self, graph, paths, size, position, keys, doors):
         self.graph = graph
         self.paths = paths
         self.size = size
         self.position = position
         self.keys = keys
         self.doors = doors
-        self.key_history = key_history
 
     @property
     def id(self):
@@ -143,7 +142,7 @@ class VaultState:
             for path in nx.all_shortest_paths(graph, position, tp):
                 paths.append((position, tp, path))
 
-        return cls(graph, paths, size, position, keys, doors, [])
+        return cls(graph, paths, size, position, keys, doors)
 
     def as_map(self):
         map = Map()
@@ -176,9 +175,7 @@ class VaultState:
         door = key.upper()
         new_keys = {p:c for p, c in self.keys.items() if p!= key_position}
         new_doors = {p:c for p, c in self.doors.items() if c!= door}
-        new_key_history = self.key_history.copy()
-        new_key_history.append(key)
-        return VaultState(self.graph, self.paths, self.size, key_position, new_keys, new_doors, new_key_history)
+        return VaultState(self.graph, self.paths, self.size, key_position, new_keys, new_doors)
 
 
 def explore_moves(state, distances):
@@ -210,14 +207,14 @@ def shortest_path_to_collect_all_keys(state):
 # """))
 # assert shortest_path_to_collect_all_keys(s) == 8
 
-# s = VaultState.from_map(parse_map("""
-# ########################
-# #f.D.E.e.C.b.A.@.a.B.c.#
-# ######################.#
-# #d.....................#
-# ########################
-# """))
-# assert shortest_path_to_collect_all_keys(s) == 86
+s = VaultState.from_map(parse_map("""
+########################
+#f.D.E.e.C.b.A.@.a.B.c.#
+######################.#
+#d.....................#
+########################
+"""))
+assert shortest_path_to_collect_all_keys(s) == 86
 
 # s = VaultState.from_map(parse_map("""
 # #################
@@ -231,5 +228,5 @@ def shortest_path_to_collect_all_keys(state):
 # #################
 # """))
 # assert shortest_path_to_collect_all_keys(s) == 136
-s = VaultState.from_map(parse_map(open("day18/input1.txt").read()))
-print(shortest_path_to_collect_all_keys(s))
+# s = VaultState.from_map(parse_map(open("day18/input1.txt").read()))
+# print(shortest_path_to_collect_all_keys(s))
