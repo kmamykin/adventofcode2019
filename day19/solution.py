@@ -378,7 +378,7 @@ class Map:
     def __init__(self, starting_size=P(5, 5)):
         self.size = starting_size
         self.tiles = {}
-        self.default = MapTile.STATIONARY
+        self.default = '.'
 
     def _update_boundary(self, point: Point):
         max_coord = max(abs(self.size.x), abs(self.size.y), abs(point.x)+1, abs(point.y)+1)
@@ -413,18 +413,53 @@ class Map:
                 c += 1
         return c
 
+    def print(self):
+        lines = []
+        for h in range(self.size.y):
+            line = []
+            for w in range(self.size.x):
+                p = P(w, h)
+                ch = self[p]
+                line.append(ch)
+            lines.append(''.join(line))
+        print("\n".join(lines))
+
+    @classmethod
+    def parse(cls, lines):
+        map = cls()
+        for y, line in enumerate([l for l in lines.splitlines() if len(l)]):
+            for x, ch in enumerate(line):
+                p = P(x, y)
+                map[p] = ch
+        return map
+
 def create_program_computer(program_code):
 
-    def execution_step(step_inputs):
+    def execution_step(p):
         outputs = []
-        program = IntcodeProgram(program_code, step_inputs, outputs)
+        inputs = [p.x, p.y]
+        program = IntcodeProgram(program_code, inputs, outputs)
         result = program.execute_until_interrupt(interrupts={ExecutionInterrupt.HAS_OUTPUT})
         if result == ExecutionInterrupt.HALT:
             return None
         if result == ExecutionInterrupt.HAS_OUTPUT:
-            return outputs
+            val = outputs[0]
+            return '.' if val == 0 else '#'
     return execution_step
 
+
+def find_bottom_beam_cover(map):
+    end_point = None
+    start_point = None
+    for x in range(map.size.x-1, 0, -1):
+        p = P(x, 49)
+        ch = map[p]
+        if end_point is None and ch == '#':
+            end_point = p
+        if end_point is not None and ch == '.':
+            start_point = p + P(1, 0)
+        if start_point is not None and end_point is not None:
+            return start_point, end_point
 
 class Robot:
 
@@ -434,60 +469,54 @@ class Robot:
 
     def fill(self):
         for p in self.map.each_coordinate():
-            outs = self.program([p.x, p.y])
-            if outs is None:
+            out = self.program(p)
+            if out is None:
                 return
-            self.map[p] = MapTile(outs[0])
+            self.map[p] = out
+
+    def min_distance_to_fit_square(self, size):
+        # looking at the map we know the beam is going to hit bottom border, so look just there
+        start_50, end_50 = find_bottom_beam_cover(self.map)
+        width_each_50 = end_50.x - start_50.x + 1
+        width_each_100 = 2*width_each_50
+        drift_each_100 = 2*end_50.x
+        i = 1
+        while width_each_100*i < size+drift_each_100:
+            i += 1
+
+        y = (i-2)*100
+        x = (i-2)*end_50.x*2
+        p = P(x, y)
+        val = self.program(p)
+        if val == '.':
+            step = P(-1, 0)
+            while val == '.':
+                p += step
+                val = self.program(p)
+        else:
+            step = P(1, 0)
+            while val == '#':
+                p += step
+                val = self.program(p)
+            p -= step  # prev step!
+
+        tr = p
+        trv = self.program(tr)
+        assert trv == '#'
+        bl = tr + P(-size, size) + P(1, -1)
+        blv = self.program(bl)
+        assert blv == '.'
+        while blv == '.':
+            if self.program(tr + P(1, 1)) == '#':
+                tr = tr + P(1, 1)
+            else:
+                tr = tr + P(0, 1)
+            bl = tr + P(-size, size) + P(1, -1)
+            blv = self.program(bl)
+        return P(bl.x, tr.y)
 
 
-class CursesDisplay:
-    def __init__(self, stdscr):
-        self.stdscr = stdscr
-        self.screen_size = P(0,0)
-
-    def update(self, robot, map):
-        if self.screen_size != map.size:
-            self.screen_size = map.size
-            self.stdscr.clear()
-        tile_chars = {
-            MapTile.STATIONARY: ".",
-            MapTile.PULLED: "#"
-        }
-        for h in range(map.size.y):
-            for w in range(map.size.x):
-                p = P(w, h)
-                screen_coords = p + P(1,1)
-                ch = tile_chars[map[p]]
-                try:
-                    self.stdscr.addch(screen_coords.y, screen_coords.x, ch)
-                except:
-                    pass
-
-        self.stdscr.refresh()
-
-
-class TextDisplay:
-    def __init__(self):
-        pass
-
-    def update(self, robot, map):
-        tile_chars = {
-            MapTile.STATIONARY: ".",
-            MapTile.PULLED: "#"
-        }
-        lines = []
-        for h in range(map.size.y):
-            line = []
-            for w in range(map.size.x):
-                p = P(w, h)
-                ch = tile_chars[map[p]]
-                line.append(ch)
-            lines.append(''.join(line))
-        print("\n".join(lines))
-
-map = Map(starting_size=P(50, 50))
+map = Map.parse(open("day19/map.txt").read())
+map.print()
 robot = Robot([int(s) for s in open("day19/input1.txt").read().strip().split(',')], map)
-robot.fill()
-display = TextDisplay()
-display.update(robot, map)
-print(map.count(MapTile.PULLED))
+print(robot.min_distance_to_fit_square(100))
