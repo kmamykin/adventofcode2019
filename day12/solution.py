@@ -141,77 +141,135 @@ def system_period(state: SystemState, max_steps = None) -> int:
     return step
 
 
-# EXAMPLE 1
-# <x=-1, y=0, z=2>
-# <x=2, y=-10, z=-7>
-# <x=4, y=-8, z=8>
-# <x=3, y=5, z=-1>
-example1 = SystemState.from_positions([
-    P(-1, 0, 2),
-    P(2, -10, -7),
-    P(4, -8, 8),
-    P(3, 5, -1)
-])
-example1_copy = SystemState.from_positions([
-    P(-1, 0, 2),
-    P(2, -10, -7),
-    P(4, -8, 8),
-    P(3, 5, -1)
-])
-print(hash(example1))
-assert hash(example1) == hash(example1_copy)
-assert example1 == example1_copy
-assert example1 in {example1_copy}
-assert example1_copy in {example1}
-assert example1 in {example1, example1_copy}
-assert len({example1, example1_copy}) == 1
-example1_2772 = simulate_steps(example1, 2772)
-# print(example1)
-# print(example1_2772)
-assert example1 == example1_2772
-assert hash(example1) == hash(example1_2772)
-# assert simulate_steps(example1, 10, debug = False).total_energy() == 179
-print(system_period(example1))
-# assert system_period(example1) == 2772
+# # EXAMPLE 1
+# # <x=-1, y=0, z=2>
+# # <x=2, y=-10, z=-7>
+# # <x=4, y=-8, z=8>
+# # <x=3, y=5, z=-1>
+# example1 = SystemState.from_positions([
+#     P(-1, 0, 2),
+#     P(2, -10, -7),
+#     P(4, -8, 8),
+#     P(3, 5, -1)
+# ])
+# example1_copy = SystemState.from_positions([
+#     P(-1, 0, 2),
+#     P(2, -10, -7),
+#     P(4, -8, 8),
+#     P(3, 5, -1)
+# ])
+# print(hash(example1))
+# assert hash(example1) == hash(example1_copy)
+# assert example1 == example1_copy
+# assert example1 in {example1_copy}
+# assert example1_copy in {example1}
+# assert example1 in {example1, example1_copy}
+# assert len({example1, example1_copy}) == 1
+# example1_2772 = simulate_steps(example1, 2772)
+# # print(example1)
+# # print(example1_2772)
+# assert example1 == example1_2772
+# assert hash(example1) == hash(example1_2772)
+# # assert simulate_steps(example1, 10, debug = False).total_energy() == 179
+# print(system_period(example1))
+# # assert system_period(example1) == 2772
+#
+# # EXAMPLE 2
+# # <x=-8, y=-10, z=0>
+# # <x=5, y=5, z=10>
+# # <x=2, y=-7, z=3>
+# # <x=9, y=-8, z=-3>
+# example2 = SystemState.from_positions([
+#     P(-8, -10, 0),
+#     P(5, 5, 10),
+#     P(2, -7, 3),
+#     P(9, -8, -3)
+# ])
+# # assert simulate_steps(example2, 100, debug = False).total_energy() == 1940
+# # assert system_period(example2) == 4686774924
+#
+# # INPUT 1
+# # <x=-3, y=10, z=-1>
+# # <x=-12, y=-10, z=-5>
+# # <x=-9, y=0, z=10>
+# # <x=7, y=-5, z=-3>
+#
+# problem1 = SystemState.from_positions([
+#     P(-3, 10, -1),
+#     P(-12, -10, -5),
+#     P(-9, 0, 10),
+#     P(7, -5, -3)
+# ])
+#
+# # print(simulate_steps(problem1, 1000, debug = False).total_energy())
+#
+# # INPUT 2
+# # <x=-3, y=10, z=-1>
+# # <x=-12, y=-10, z=-5>
+# # <x=-9, y=0, z=10>
+# # <x=7, y=-5, z=-3>
+# problem2 = SystemState.from_positions([
+#     P(-3, 10, -1),
+#     P(-12, -10, -5),
+#     P(-9, 0, 10),
+#     P(7, -5, -3)
+# ])
+# # print(system_period(problem2, max_steps=100))
 
-# EXAMPLE 2
-# <x=-8, y=-10, z=0>
-# <x=5, y=5, z=10>
-# <x=2, y=-7, z=3>
-# <x=9, y=-8, z=-3>
-example2 = SystemState.from_positions([
-    P(-8, -10, 0),
-    P(5, 5, 10),
-    P(2, -7, 3),
-    P(9, -8, -3)
-])
-# assert simulate_steps(example2, 100, debug = False).total_energy() == 1940
-# assert system_period(example2) == 4686774924
+def gravity_1d(pos1, pos2):
+    def diff(v1, v2):
+        if v1 < v2:
+            return 1
+        elif v1 > v2:
+            return -1
+        else:
+            return 0
+    return diff(pos1, pos2), diff(pos2, pos1)
 
-# INPUT 1
-# <x=-3, y=10, z=-1>
-# <x=-12, y=-10, z=-5>
-# <x=-9, y=0, z=10>
-# <x=7, y=-5, z=-3>
+def simulate_step_1d(positions, velocities):
+    new_velocities = velocities.copy()
+    for i1, i2 in combinations(range(len(positions)), 2):
+        g1, g2 = gravity_1d(positions[i1], positions[i2])
+        new_velocities[i1] += g1
+        new_velocities[i2] += g2
+    new_positions = [positions[i] + new_velocities[i] for i in range(len(positions))]
+    return new_positions, new_velocities
 
-problem1 = SystemState.from_positions([
-    P(-3, 10, -1),
-    P(-12, -10, -5),
-    P(-9, 0, 10),
-    P(7, -5, -3)
-])
+def find_system_period_1d(starting_positions):
+    starting_velocities = [0 for p in starting_positions]
+    positions = starting_positions
+    velocities = starting_velocities
+    step = 0
+    while True:
+        positions, velocities = simulate_step_1d(positions, velocities)
+        step += 1
+        # if step % 1 == 0:
+        #     print(f"Step {step}: pos={positions} vel={velocities}")
+        if positions == starting_positions and velocities == starting_velocities:
+            break
+    return step
 
-# print(simulate_steps(problem1, 1000, debug = False).total_energy())
+def lcm(v1, v2, v3):
+    """
+    Least common multiple
+    :param v1:
+    :param v2:
+    :param v3:
+    :return:
+    """
+    lcm12 = abs(v1 * v2) // math.gcd(v1, v2)
+    return abs(lcm12 * v3) // math.gcd(lcm12, v3)
 
-# INPUT 2
-# <x=-3, y=10, z=-1>
-# <x=-12, y=-10, z=-5>
-# <x=-9, y=0, z=10>
-# <x=7, y=-5, z=-3>
-problem2 = SystemState.from_positions([
-    P(-3, 10, -1),
-    P(-12, -10, -5),
-    P(-9, 0, 10),
-    P(7, -5, -3)
-])
-# print(system_period(problem2, max_steps=100))
+assert lcm(1, 2, 3) == 6
+assert lcm(7, 11, 13) == 7*11*13
+x_period = find_system_period_1d([-3, -12, -9, 7])
+y_period = find_system_period_1d([10, -10, 0, -5])
+z_period = find_system_period_1d([-1, -5, 10, -3])
+print(x_period)
+print(y_period)
+print(z_period)
+print(f"Finally!: {lcm(x_period, y_period, z_period)}")
+# # <x=-3, y=10, z=-1>
+# # <x=-12, y=-10, z=-5>
+# # <x=-9, y=0, z=10>
+# # <x=7, y=-5, z=-3>
