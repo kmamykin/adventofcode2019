@@ -1,6 +1,4 @@
-import numpy as np
 import re
-from dataclasses import dataclass
 
 
 class Deck:
@@ -42,15 +40,16 @@ class Deck:
         else:
             assert False, "Could not parse line"
 
+
 class FactoryOrder:
     def __init__(self, size):
-        self.cards = np.arange(size, dtype = np.int16)
+        self.size = size
 
     def __repr__(self):
-        return f"{self.cards}"
+        return f"[0, ..., {self.size-1}]"
 
     def __getitem__(self, position):
-        return self.cards[position]
+        return position
 
     def where(self, card):
         # In factory order card value == card index
