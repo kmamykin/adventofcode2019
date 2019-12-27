@@ -101,7 +101,10 @@ class WithNIncrementsShuffle:
         # 0, 7, 14, 1, 8, 15, 2, 9, 16, 3, 10, 17,  4, 11, 18,  5, 12, 19,  6, 13
         if idx == 0:
             return 0
-        return size - ((idx * self.n) % size)
+        m = 0
+        while (m * size + idx) % self.n != 0:
+            m += 1
+        return (m * size + idx) // self.n
 
 
 deck = Deck.new_deck(10)
@@ -172,54 +175,48 @@ deck = (
     .shuffle('deal into new stack')
     .debug()
 )
+# this result does not match AOC example. Problem in my implementation or the website example?
 # assert deck.as_list() == [3, 0, 7, 4, 1, 8, 5, 2, 9, 6]
 # assert deck.where(9) == 8
-# assert Deck.new_deck(20).shuffle('deal with increment 3').debug().as_list() == [0, 7, 14, 1, 8, 15, 2, 9, 16, 3, 10, 17, 4, 11, 18, 5, 12, 19, 6, 13]
-lines = [line.strip() for line in open("day22/input1.txt").read().splitlines() if len(line)]
-deck = Deck.new_deck(10007)
-for line in lines:
-    deck = deck.shuffle(line)
+assert Deck.new_deck(20).shuffle('deal with increment 3').debug().as_list() == [0, 7, 14, 1, 8, 15, 2, 9, 16, 3, 10, 17, 4, 11, 18, 5, 12, 19, 6, 13]
 
-print(deck.where(2019))
+def part1():
+    lines = [line.strip() for line in open("day22/input1.txt").read().splitlines() if len(line)]
+    deck = Deck.new_deck(10007)
+    for line in lines:
+        deck = deck.shuffle(line)
 
-SIZE = 119315717514047
-NUMBER_OF_APPLICATIONS = 101741582076661
-deck = Deck.new_deck(SIZE)
-shufflers = [Deck.parse_shuffler(line) for line in lines]
-# idx = 2020
-# applications_map = {}
-# for i in tqdm(range(NUMBER_OF_APPLICATIONS)):
-#     if idx in applications_map:
-#         print(f"Already calculated {idx} to equal {applications_map[idx]}")
-#         idx = applications_map[idx]
-#     else:
-#         starting_idx = idx
-#         for shuffler in reversed(shufflers):
-#             idx = shuffler.backward(idx, SIZE)
-#         applications_map[starting_idx] = idx
-starting_idx = 2020
-idx = starting_idx
-applications_map = {}
-counter = 0
-cycles_found = 0
-for i in tqdm(range(NUMBER_OF_APPLICATIONS)):
-    if cycles_found > 5:
-        break
-    for shuffler in shufflers:
-        prev_idx = idx
-        idx = shuffler.forward(prev_idx, SIZE)
-        applications_map[prev_idx] = idx
-        counter += 1
-        if idx in applications_map:
-            print(f"Already calculated {idx}->{applications_map[idx]} in {counter} steps")
-            cycles_found += 1
+    print(deck.where(2019))
+
+
+def part2():
+    DECK_SIZE = 119315717514047
+    NUMBER_OF_INTERATIONS = 101741582076661
+    lines = [line.strip() for line in open("day22/input1.txt").read().splitlines() if len(line)]
+    shufflers = list(reversed([Deck.parse_shuffler(line) for line in lines]))
+    n_shufflers = len(shufflers)
+    assert n_shufflers == 100
+    idx_out = 2020
+    # idx = starting_idx
+    saved_results = {}
+    saved_steps = {}
+    total_number_of_steps = NUMBER_OF_INTERATIONS * n_shufflers
+    step = 0
+    while True:
+        shuffler = shufflers[step % n_shufflers]
+        idx_in = idx_out
+        idx_out = shuffler.backward(idx_in, DECK_SIZE)
+
+        if idx_in in saved_results and idx_out == saved_results[idx_in]:
+            print(f"Found cycle @step={step} shuffle={step%n_shufflers} [{idx_in}]->{idx_out} {(step - saved_steps[idx_in])} steps back")
+            if (step - saved_steps[idx_in]) % n_shufflers == 0:
+                print(f"FAST FORWARDING!")
+                break
+        saved_results[idx_in] = idx_out
+        saved_steps[idx_in] = step
+        step += 1
+        if step >= total_number_of_steps:
             break
-        if idx == 2020:
-            print(f"Found 2020 {idx} in {counter} steps")
-            cycles_found += 1
-            break
-    # print(f"{starting_idx} -> {idx} diff {idx - starting_idx}")
-print(idx)
+    print(idx_out)
 
-# TODO: Find a verify the backward logic for "with N increments" shuffle
-# TODO: Calculate the cycle shuffling bach
+part2()
