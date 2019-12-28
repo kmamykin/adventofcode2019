@@ -74,6 +74,11 @@ class NewStackShuffle:
     def backward(self, idx, size):
         return size - idx - 1
 
+    def compose_linear_fn(self, a, b, size):
+        la, lb = -1, -1
+        # la * (a * x + b) + lb == la * a * x + la*b + lb
+        # The `% n` doesn't change the result, but keeps the numbers small.
+        return (la * a) % size, (la * b + lb) % size
 
 @dataclass
 class CutNCardsShuffle:
@@ -84,6 +89,10 @@ class CutNCardsShuffle:
 
     def backward(self, idx, size):
         return (self.n + idx) % size
+
+    def compose_linear_fn(self, a, b, size):
+        la, lb = 1, self.n
+        return (la * a) % size, (la * b + lb) % size
 
 
 @dataclass
@@ -101,10 +110,14 @@ class WithNIncrementsShuffle:
         # 0, 7, 14, 1, 8, 15, 2, 9, 16, 3, 10, 17,  4, 11, 18,  5, 12, 19,  6, 13
         if idx == 0:
             return 0
-        m = 0
+        m = 0 # TODO: use divmod!
         while (m * size + idx) % self.n != 0:
             m += 1
         return (m * size + idx) // self.n
+
+    def compose_linear_fn(self, a, b, size):
+        la, lb = self.n, 0
+        return (la * a) % size, (la * b + lb) % size
 
 
 deck = Deck.new_deck(10)
@@ -193,30 +206,35 @@ def part2():
     DECK_SIZE = 119315717514047
     NUMBER_OF_INTERATIONS = 101741582076661
     lines = [line.strip() for line in open("day22/input1.txt").read().splitlines() if len(line)]
-    shufflers = list(reversed([Deck.parse_shuffler(line) for line in lines]))
-    n_shufflers = len(shufflers)
-    assert n_shufflers == 100
-    idx_out = 2020
-    # idx = starting_idx
-    saved_results = {}
-    saved_steps = {}
-    total_number_of_steps = NUMBER_OF_INTERATIONS * n_shufflers
-    step = 0
-    while True:
-        shuffler = shufflers[step % n_shufflers]
-        idx_in = idx_out
-        idx_out = shuffler.backward(idx_in, DECK_SIZE)
+    shufflers = [Deck.parse_shuffler(line) for line in lines]
+    idx = 2020
 
-        if idx_in in saved_results and idx_out == saved_results[idx_in]:
-            print(f"Found cycle @step={step} shuffle={step%n_shufflers} [{idx_in}]->{idx_out} {(step - saved_steps[idx_in])} steps back")
-            if (step - saved_steps[idx_in]) % n_shufflers == 0:
-                print(f"FAST FORWARDING!")
-                break
-        saved_results[idx_in] = idx_out
-        saved_steps[idx_in] = step
-        step += 1
-        if step >= total_number_of_steps:
-            break
-    print(idx_out)
+    a, b = 1, 0
+    for shuffler in shufflers:
+        a, b = shuffler.compose_linear_fn(a, b, DECK_SIZE)
+
+    # Now we want to run the limear function composition for each iteration:
+    # la, lb = a, b
+    # a = 1, b = 0
+    # for i in range(NUMBER_OF_INTERATIONS):
+    #     a, b = (a * la) % n, (la * b + lb) % n
+
+    # For a, this is same as computing (a ** M) % n, which is in the computable
+    # realm with fast exponentiation.
+    # For b, this is same as computing ... + a**2 * b + a*b + b
+    # == b * (a**(M-1) + a**(M) + ... + a + 1) == b * (a**M - 1)/(a-1)
+    # That's again computable, but we need the inverse of a-1 mod n.
+
+    # Fermat's little theorem gives a simple inv:
+    def inv(a, n): return pow(a, n-2, n)
+
+    Ma = pow(a, NUMBER_OF_INTERATIONS, DECK_SIZE)
+    Mb = (b * (Ma - 1) * inv(a-1, DECK_SIZE)) % DECK_SIZE
+
+    # This computes "where does 2020 end up", but I want "what is at 2020".
+    #print((Ma * c + Mb) % n)
+
+    # So need to invert (2020 - MB) * inv(Ma)
+    print(((idx - Mb) * inv(Ma, DECK_SIZE)) % DECK_SIZE)
 
 part2()
