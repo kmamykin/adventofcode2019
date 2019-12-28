@@ -202,21 +202,18 @@ def part1():
     print(deck.where(2019))
 
 
-def part2():
-    DECK_SIZE = 119315717514047
-    NUMBER_OF_INTERATIONS = 101741582076661
+def part2(deck_size, number_of_applications, card, position):
     lines = [line.strip() for line in open("day22/input1.txt").read().splitlines() if len(line)]
     shufflers = [Deck.parse_shuffler(line) for line in lines]
-    idx = 2020
 
     a, b = 1, 0
     for shuffler in shufflers:
-        a, b = shuffler.compose_linear_fn(a, b, DECK_SIZE)
+        a, b = shuffler.compose_linear_fn(a, b, deck_size)
 
-    # Now we want to run the limear function composition for each iteration:
+    # Now we want to run the linear function composition for each iteration:
     # la, lb = a, b
     # a = 1, b = 0
-    # for i in range(NUMBER_OF_INTERATIONS):
+    # for i in range(number_of_applications):
     #     a, b = (a * la) % n, (la * b + lb) % n
 
     # For a, this is same as computing (a ** M) % n, which is in the computable
@@ -228,13 +225,15 @@ def part2():
     # Fermat's little theorem gives a simple inv:
     def inv(a, n): return pow(a, n-2, n)
 
-    Ma = pow(a, NUMBER_OF_INTERATIONS, DECK_SIZE)
-    Mb = (b * (Ma - 1) * inv(a-1, DECK_SIZE)) % DECK_SIZE
+    Ma = pow(a, number_of_applications, deck_size)
+    Mb = (b * (Ma - 1) * inv(a-1, deck_size)) % deck_size
 
     # This computes "where does 2020 end up", but I want "what is at 2020".
-    #print((Ma * c + Mb) % n)
+    print(f"Card {card} will end up at {(Ma * card + Mb) % deck_size}")
 
     # So need to invert (2020 - MB) * inv(Ma)
-    print(((idx - Mb) * inv(Ma, DECK_SIZE)) % DECK_SIZE)
+    print(f"At position {position} there will be {((position - Mb) * inv(Ma, deck_size)) % deck_size} card")
 
-part2()
+DECK_SIZE = 119315717514047
+NUMBER_OF_INTERATIONS = 101741582076661
+part2(10007, 1, 2019, 2020)
