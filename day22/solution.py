@@ -101,7 +101,7 @@ class Deck:
         if line == 'deal into new stack':
             return new_stack_shuffle()
         elif cut_n_match:
-            return cut_n_cards_shuffle(-int(cut_n_match.group(1)))
+            return cut_n_cards_shuffle(int(cut_n_match.group(1)))
         elif deal_with_incr_match:
             return with_n_increments_shuffle(int(deal_with_incr_match.group(1)))
         else:
@@ -125,20 +125,19 @@ def new_stack_shuffle():
 
 
 def cut_n_cards_shuffle(n):
-    return Shuffle(1, n)
+    return Shuffle(1, -n)
 
 
 def with_n_increments_shuffle(n):
     return Shuffle(n, 0)
 
-
+# IMPORTANT! Need to use a prime size for the deck, otherwise the inverse transform does not work
 deck = Deck.new_deck(11)
 assert deck[0] == 0
 assert deck[9] == 9
 assert deck.where(0) == 0
 assert deck.where(9) == 9
 deck = Deck.new_deck(11).shuffle('deal into new stack')
-# deck = Deck(new_stack_shuffle(), 11)
 print(deck)
 assert deck.at_list() == [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
 assert deck.at_list2() == [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
@@ -152,9 +151,6 @@ assert deck.where_list() == [8, 9, 10, 0, 1, 2, 3, 4, 5, 6, 7]
 
 deck = Deck.new_deck(11).shuffle('deal with increment 3')
 print(deck)
-# print(deck.at_list())
-# print(deck.at_list2())
-# print(deck.where_list())
 assert deck.at_list() == [0, 4, 8, 1, 5, 9, 2, 6, 10, 3, 7]
 assert deck.at_list2() == [0, 4, 8, 1, 5, 9, 2, 6, 10, 3, 7]
 assert deck.where_list() == [0, 3, 6, 9, 1, 4, 7, 10, 2, 5, 8]
@@ -179,6 +175,7 @@ deck = (
     .shuffle('deal into new stack')
     .debug()
 )
+assert deck.at_list() == [6, 8, 10, 1, 3, 5, 7, 9, 0, 2, 4]
 
 
 def part1():
